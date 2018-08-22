@@ -1,22 +1,33 @@
 var path = require('path')
+// the menubar instance itself is an EventEmitter
 var events = require('events')
 var fs = require('fs')
 
 var electron = require('electron')
 var app = electron.app
+// Tray is used for showing the icon which is the entry point of the app
 var Tray = electron.Tray
+// when clicking on the tray or being invoked through global shortcut, show a browser window.
 var BrowserWindow = electron.BrowserWindow
 
 var extend = require('extend')
 var Positioner = require('electron-positioner')
 
 module.exports = function create (opts) {
+  // if no opts defined, just pad the opts object using dir
   if (typeof opts === 'undefined') opts = {dir: app.getAppPath()}
+  // if opts is a string, assume its the dir
   if (typeof opts === 'string') opts = {dir: opts}
+  // if opts is an object but doesn't contain the dir, set it using app.getAppPath()
+  // which returns the path of the current electron app.
   if (!opts.dir) opts.dir = app.getAppPath()
+  // expect the dir to be absolute path.
   if (!(path.isAbsolute(opts.dir))) opts.dir = path.resolve(opts.dir)
+  // if no absolute index file path is passed in, use the default index.html path.
   if (!opts.index) opts.index = 'file://' + path.join(opts.dir, 'index.html')
+  // if no windowPosition is specified(from a list of supported position in electron-positioner)
   if (!opts.windowPosition) opts.windowPosition = (process.platform === 'win32') ? 'trayBottomCenter' : 'trayCenter'
+  // do not show dock icon by default
   if (typeof opts.showDockIcon === 'undefined') opts.showDockIcon = false
 
   // set width/height on opts to be usable before the window is created
@@ -126,6 +137,7 @@ module.exports = function create (opts) {
         noBoundsPosition = (process.platform === 'win32') ? 'bottomRight' : 'topRight'
       }
 
+      // positioner.calculate(position, trayBounds)
       var position = menubar.positioner.calculate(noBoundsPosition || opts.windowPosition, trayPos)
 
       var x = (opts.x !== undefined) ? opts.x : position.x
