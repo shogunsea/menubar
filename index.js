@@ -91,6 +91,9 @@ module.exports = function create (opts) {
     // I don't really know what this try catch block is for, nor there is any explaination
     // from the original PR that added this block.
     // I'm guessing this is a way of testing whether or not current OS is mac or windows.
+    // **update: ^ that is right. but unless there are versions of macOS that will throw
+    // an error when accessing this method, otherwise it would be more readable by just
+    // doing the OS check.
     try {
       menubar.tray.setHighlightMode('never')
       supportsTrayHighlightState = true
@@ -101,17 +104,26 @@ module.exports = function create (opts) {
       createWindow()
     }
 
+
+    // expose show/hide window method on the instance so that it can be called where needed
     menubar.showWindow = showWindow
     menubar.hideWindow = hideWindow
     menubar.emit('ready')
 
+    // click handler when the tray icon is being clicked.
     function clicked (e, bounds) {
+      // checks for alt,shift,contrl,meta/command key
       if (e.altKey || e.shiftKey || e.ctrlKey || e.metaKey) return hideWindow()
+      // clicking on the tray icon while the window is visible will hide the window.
       if (menubar.window && menubar.window.isVisible()) return hideWindow()
+      // still not sure why the bounds need to be cached. double clicking seems always return the same value
+      // for the bounds object.. maybe my monitor resolution is too low?
       cachedBounds = bounds || cachedBounds
+      // show the main app window
       showWindow(cachedBounds)
     }
 
+    // render the app page by creating a new render process -> render a new window.
     function createWindow () {
       menubar.emit('create-window')
       var defaults = {
@@ -119,11 +131,14 @@ module.exports = function create (opts) {
         frame: false
       }
 
+      // hmm looks like, the opts being passed into the menubar constructor is also passed into
+      // the browserWindow constructor: this could cause attributes naming collision??
       var winOpts = extend(defaults, opts)
+      // initialize the window obj and pass the reference to the menubar instance
       menubar.window = new BrowserWindow(winOpts)
-
+      // initialize the positioner obj and pass the reference to the menubar instance
       menubar.positioner = new Positioner(menubar.window)
-
+      // when losing the focus, or blur out: hide the window or just emmit an event if alwasyOnTop is set to true.
       menubar.window.on('blur', function () {
         opts.alwaysOnTop ? emitBlur() : hideWindow()
       })
@@ -137,7 +152,9 @@ module.exports = function create (opts) {
       menubar.emit('after-create-window')
     }
 
+    // show the main app window
     function showWindow (trayPos) {
+      // this condition is equivalent of checking if current os is macos or not?
       if (supportsTrayHighlightState) menubar.tray.setHighlightMode('always')
       if (!menubar.window) {
         createWindow()
