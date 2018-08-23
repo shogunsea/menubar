@@ -11,6 +11,7 @@ var Tray = electron.Tray
 var BrowserWindow = electron.BrowserWindow
 
 var extend = require('extend')
+// this is initialized with the window object that contains height/width information of the window, then when .calculate method is called, it calculates the window position based on the position of the tray, and the position option being passed in such as center, trayCenter, etc.
 var Positioner = require('electron-positioner')
 
 module.exports = function create (opts) {
@@ -30,14 +31,22 @@ module.exports = function create (opts) {
   // do not show dock icon by default
   if (typeof opts.showDockIcon === 'undefined') opts.showDockIcon = false
 
+  // ** questions: {
+  //   1. when does 'before window is created' could happen?
+  //   2. where would width/height is used?
+  // }
   // set width/height on opts to be usable before the window is created
   opts.width = opts.width || 400
   opts.height = opts.height || 400
   opts.tooltip = opts.tooltip || ''
 
+  // initialize the menubar as an event emitter.
   var menubar = new events.EventEmitter()
+  // attach the main process as attribute of the menubar instance.
   menubar.app = app
 
+  // ** is this only to handle when menubar is initlized multiple times?
+  // ** for the use case of pretzel it seems that only attaching the event handler here is enough?
   if (app.isReady()) appReady()
   else app.on('ready', appReady)
 
@@ -52,26 +61,42 @@ module.exports = function create (opts) {
 
   return menubar
 
+
   function appReady () {
+    // if it's macos that can show dock icon, and the showDockIcon is not enabled, then
+    // hide the dock
     if (app.dock && !opts.showDockIcon) app.dock.hide()
-
+    // checks the icon path, if not specified then use the default icon tempalte
     var iconPath = opts.icon || path.join(opts.dir, 'IconTemplate.png')
-    if (!fs.existsSync(iconPath)) iconPath = path.join(__dirname, 'example', 'IconTemplate.png') // default cat icon
+    // if specified icon doesn't exist, then again use the default icon.
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(__dirname, 'example', 'IconTemplate.png') // default cat icon
+    }
 
+    // the double click doesn't seem to work for macos, maybe it's a thing
+    // on windows.
     var cachedBounds // cachedBounds are needed for double-clicked event
+    // if specified that should invoke from right click
     var defaultClickEvent = opts.showOnRightClick ? 'right-click' : 'click'
 
+    // looks like you can pass tray as an instance from the params?
     menubar.tray = opts.tray || new Tray(iconPath)
+    // attach left/right click handler, always attach double click handler
     menubar.tray.on(defaultClickEvent, clicked)
     menubar.tray.on('double-click', clicked)
+    // set the tooltip
     menubar.tray.setToolTip(opts.tooltip)
 
     var supportsTrayHighlightState = false
+    // I don't really know what this try catch block is for, nor there is any explaination
+    // from the original PR that added this block.
+    // I'm guessing this is a way of testing whether or not current OS is mac or windows.
     try {
       menubar.tray.setHighlightMode('never')
       supportsTrayHighlightState = true
     } catch (e) {}
 
+    // why this(to load the window when app is ready) is needed ?
     if (opts.preloadWindow) {
       createWindow()
     }
