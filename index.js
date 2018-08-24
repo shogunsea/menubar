@@ -143,11 +143,16 @@ module.exports = function create (opts) {
         opts.alwaysOnTop ? emitBlur() : hideWindow()
       })
 
+      // whether or not to show the main window in all desktops/spaces
+      // doesn't really make sense to show the window invoked by tray icon
+      // to show up in all spaces, nor do normal apps actually
       if (opts.showOnAllWorkspaces !== false) {
         menubar.window.setVisibleOnAllWorkspaces(true)
       }
 
+      // ** how is the window close event being triggered if there's no frame?
       menubar.window.on('close', windowClear)
+      // load the index page.
       menubar.window.loadURL(opts.index)
       menubar.emit('after-create-window')
     }
@@ -162,6 +167,9 @@ module.exports = function create (opts) {
 
       menubar.emit('show')
 
+      // because showWindow is exposed as instance attribute of menubar,
+      // outside this library this method could be invoked without arguments,
+      // one valid use case is when the menubar app is invoked through global shortcut.
       if (trayPos && trayPos.x !== 0) {
         // Cache the bounds
         cachedBounds = trayPos
@@ -174,6 +182,7 @@ module.exports = function create (opts) {
       }
 
       // Default the window to the right if `trayPos` bounds are undefined or null.
+      // at this point if no any other weird shit, trayPos shouldn't be undefined or null
       var noBoundsPosition = null
       if ((trayPos === undefined || trayPos.x === 0) && opts.windowPosition.substr(0, 4) === 'tray') {
         noBoundsPosition = (process.platform === 'win32') ? 'bottomRight' : 'topRight'
@@ -191,16 +200,29 @@ module.exports = function create (opts) {
       return
     }
 
+    // hide the main app window
     function hideWindow () {
+      // if it's macOS and supports tray highlight state, then turn off the highlight.
       if (supportsTrayHighlightState) menubar.tray.setHighlightMode('never')
+      // if there's no window instance: close event has been called already?
       if (!menubar.window) return
       menubar.emit('hide')
       menubar.window.hide()
       menubar.emit('after-hide')
     }
 
+    // event handler for window close event
+    // the close event can be fired by:  {
+    //   1. cancel the process from command line
+    //   2. clicking the quit button on window UI
+    //   3. cmd + q to quit
+    // }
     function windowClear () {
+      //  remove the window reference from the menubar
+      // instance: garbage collection
       delete menubar.window
+      // when the window referece has been removed,
+      // emit after-close event
       menubar.emit('after-close')
     }
 
