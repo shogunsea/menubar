@@ -189,8 +189,9 @@ module.exports = function create (opts) {
       }
 
       // positioner.calculate(position, trayBounds)
+      // get the window position from this lib
       var position = menubar.positioner.calculate(noBoundsPosition || opts.windowPosition, trayPos)
-
+      // this means that you can pass in the desired position as x,y
       var x = (opts.x !== undefined) ? opts.x : position.x
       var y = (opts.y !== undefined) ? opts.y : position.y
 
