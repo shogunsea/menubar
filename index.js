@@ -7,13 +7,15 @@ var electron = require('electron')
 var app = electron.app
 // Tray is used for showing the icon which is the entry point of the app
 var Tray = electron.Tray
-// when clicking on the tray or being invoked through global shortcut, show a browser window.
+// when clicking on the tray or being invoked through global shortcut, show a browser window: creating and destroying one window instance everytime you click or hide the icon, is this really memory efficient?
 var BrowserWindow = electron.BrowserWindow
 
 var extend = require('extend')
 // this is initialized with the window object that contains height/width information of the window, then when .calculate method is called, it calculates the window position based on the position of the tray, and the position option being passed in such as center, trayCenter, etc.
 var Positioner = require('electron-positioner')
 
+// thumbs up for the author of the lib to set this method as a named function
+// such good readability
 module.exports = function create (opts) {
   // if no opts defined, just pad the opts object using dir
   if (typeof opts === 'undefined') opts = {dir: app.getAppPath()}
@@ -31,11 +33,7 @@ module.exports = function create (opts) {
   // do not show dock icon by default
   if (typeof opts.showDockIcon === 'undefined') opts.showDockIcon = false
 
-  // ** questions: {
-  //   1. when does 'before window is created' could happen?
-  //   2. where would width/height is used?
-  // }
-  // set width/height on opts to be usable before the window is created
+  // set width/height on opts if no width/height passed in
   opts.width = opts.width || 400
   opts.height = opts.height || 400
   opts.tooltip = opts.tooltip || ''
@@ -45,8 +43,9 @@ module.exports = function create (opts) {
   // attach the main process as attribute of the menubar instance.
   menubar.app = app
 
-  // ** is this only to handle when menubar is initlized multiple times?
-  // ** for the use case of pretzel it seems that only attaching the event handler here is enough?
+  // when electron.app/main process is ready before menubar is created
+  // this could happen either because of more than one instance of
+  // menubar is created or menubar is created in a lazy-init fashion.
   if (app.isReady()) appReady()
   else app.on('ready', appReady)
 
@@ -92,20 +91,23 @@ module.exports = function create (opts) {
     // from the original PR that added this block.
     // I'm guessing this is a way of testing whether or not current OS is mac or windows.
     // **update: ^ that is right. but unless there are versions of macOS that will throw
-    // an error when accessing this method, otherwise it would be more readable by just
-    // doing the OS check.
+    // an error when accessing this method, otherwise it would be more readable
+    // by just doing the OS check.
     try {
       menubar.tray.setHighlightMode('never')
       supportsTrayHighlightState = true
     } catch (e) {}
 
     // why this(to load the window when app is ready) is needed ?
+    // what's the reason for not creating the window one app is ready..?
+    // updates:
     if (opts.preloadWindow) {
       createWindow()
     }
 
 
     // expose show/hide window method on the instance so that it can be called where needed
+    // as if this is instance method..
     menubar.showWindow = showWindow
     menubar.hideWindow = hideWindow
     menubar.emit('ready')
